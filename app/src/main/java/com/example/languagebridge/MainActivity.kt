@@ -27,10 +27,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.languagebridge.data.AppPreferences
 import com.example.languagebridge.data.AzureTranslationService
 import com.example.languagebridge.data.Language
 import com.example.languagebridge.ui.ConversationZone
 import com.example.languagebridge.ui.TranslatorViewModel
+import com.example.languagebridge.ui.TranslatorViewModelFactory
 import com.example.languagebridge.ui.theme.LanguageBridgeTheme
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.material3.ButtonDefaults
@@ -38,8 +41,7 @@ import com.example.languagebridge.ui.TypedInputRow
 import com.example.languagebridge.ui.theme.AppColors
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Arrangement
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.languagebridge.ui.TranslatorViewModelFactory
+
 class MainActivity : ComponentActivity() {
 
     private var micPermissionGranted by mutableStateOf(value = false)
@@ -63,6 +65,8 @@ class MainActivity : ComponentActivity() {
             requestMicPermission.launch(Manifest.permission.RECORD_AUDIO)
         }
 
+        val initialTopLanguage = AppPreferences.loadTopLanguage(this)
+
         val service = AzureTranslationService(
             speechKey = BuildConfig.AZURE_SPEECH_KEY,
             speechRegion = BuildConfig.AZURE_SPEECH_REGION,
@@ -78,6 +82,10 @@ class MainActivity : ComponentActivity() {
                     Greeting(
                         viewModel = viewModel,
                         hasMicPermission = micPermissionGranted,
+                        initialTopLanguage = initialTopLanguage,
+                        onTopLanguageChanged = { lang ->
+                            AppPreferences.saveTopLanguage(this@MainActivity, lang)
+                        },
                         modifier = Modifier.padding(innerPadding),
                     )
                 }
@@ -90,9 +98,11 @@ class MainActivity : ComponentActivity() {
 fun Greeting(
     viewModel: TranslatorViewModel,
     hasMicPermission: Boolean,
+    initialTopLanguage: Language,
+    onTopLanguageChanged: (Language) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var topLanguage by remember { mutableStateOf(Language.ARMENIAN) }
+    var topLanguage by remember { mutableStateOf(initialTopLanguage) }
     val bottomLanguage = topLanguage.other()
 
     var topZoneFlipped by remember { mutableStateOf(true) }
@@ -145,7 +155,10 @@ fun Greeting(
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(
-                    onClick = { topLanguage = topLanguage.other() },
+                    onClick = {
+                        topLanguage = topLanguage.other()
+                        onTopLanguageChanged(topLanguage)
+                    },
                     colors = ButtonDefaults.buttonColors(containerColor = AppColors.AccentBlue),
                 ) {
                     Text("⇅ Поменять стороны", color = AppColors.TextPrimary)
