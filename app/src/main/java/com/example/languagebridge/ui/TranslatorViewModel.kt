@@ -24,6 +24,9 @@ class TranslatorViewModel(
     var errorMessage by mutableStateOf<String?>(null)
         private set
 
+    fun clearConversation() {
+        conversation.clear()
+    }
     fun startListening(sourceLanguage: Language) {
         errorMessage = null
         isBusy = true

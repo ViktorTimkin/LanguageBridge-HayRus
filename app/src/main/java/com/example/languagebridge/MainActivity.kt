@@ -41,6 +41,10 @@ import com.example.languagebridge.ui.TypedInputRow
 import com.example.languagebridge.ui.theme.AppColors
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 
 class MainActivity : ComponentActivity() {
 
@@ -170,6 +174,13 @@ fun Greeting(
                 ) {
                     Text("🔄 Верхний чат", color = AppColors.TextPrimary)
                 }
+                IconButton(onClick = { viewModel.clearConversation() }) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "🗑",
+                        tint = AppColors.ErrorRed
+                    )
+                }
             }
 
             if (bottomLanguage == Language.RUSSIAN) {
@@ -187,6 +198,7 @@ fun Greeting(
                     modifier = Modifier.padding(top = 4.dp),
                 )
             }
+
         }
 
         ConversationZone(
