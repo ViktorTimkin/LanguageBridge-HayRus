@@ -150,12 +150,12 @@ fun Greeting(
                 .background(AppColors.MiddlePanelBackground)
                 .padding(vertical = 8.dp),
         ) {
-            if (topLanguage == Language.RUSSIAN) {
-                TypedInputRow(
-                    language = topLanguage,
-                    onSend = { lang, text -> viewModel.translateTyped(lang, text) },
-                )
-            }
+
+            TypedInputRow(
+                language = topLanguage,
+                onSend = { lang, text -> viewModel.translateTyped(lang, text) },
+            )
+
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(
@@ -183,12 +183,10 @@ fun Greeting(
                 }
             }
 
-            if (bottomLanguage == Language.RUSSIAN) {
-                TypedInputRow(
-                    language = bottomLanguage,
-                    onSend = { lang, text -> viewModel.translateTyped(lang, text) },
-                )
-            }
+            TypedInputRow(
+                language = bottomLanguage,
+                onSend = { lang, text -> viewModel.translateTyped(lang, text) },
+            )
 
             viewModel.errorMessage?.let {
                 Text(

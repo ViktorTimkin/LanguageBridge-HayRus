@@ -18,7 +18,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.languagebridge.data.Language
 import com.example.languagebridge.ui.theme.AppColors
-
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.intl.LocaleList
 @Composable
 fun TypedInputRow(
     language: Language,
@@ -32,6 +33,7 @@ fun TypedInputRow(
             value = typedText,
             onValueChange = { typedText = it },
             placeholder = { Text(language.displayName, color = AppColors.TextSecondary) },
+            keyboardOptions = KeyboardOptions(hintLocales = LocaleList(language.speechLocale)),
             shape = RoundedCornerShape(12.dp),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedTextColor = AppColors.TextPrimary,
