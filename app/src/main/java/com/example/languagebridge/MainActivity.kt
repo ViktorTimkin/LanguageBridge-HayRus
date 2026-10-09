@@ -45,7 +45,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.unit.sp
 class MainActivity : ComponentActivity() {
 
     private var micPermissionGranted by mutableStateOf(value = false)
@@ -110,7 +114,7 @@ fun Greeting(
     val bottomLanguage = topLanguage.other()
 
     var topZoneFlipped by remember { mutableStateOf(true) }
-
+    var showTyping by remember { mutableStateOf(false) }
     val topListState = rememberLazyListState()
     val bottomListState = rememberLazyListState()
 
@@ -148,45 +152,69 @@ fun Greeting(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(AppColors.MiddlePanelBackground)
-                .padding(vertical = 8.dp),
+                .padding(vertical = 6.dp),
         ) {
+            AnimatedVisibility(visible = showTyping) {
+                TypedInputRow(
+                    language = topLanguage,
+                    onSend = { lang, text -> viewModel.translateTyped(lang, text) },
+                )
+            }
 
-            TypedInputRow(
-                language = topLanguage,
-                onSend = { lang, text -> viewModel.translateTyped(lang, text) },
-            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconButton(
+                    onClick = { showTyping = !showTyping },
+                    modifier = Modifier.size(40.dp),
+                ) {
+                    Text(
+                        text = "⌨",
+                        fontSize = 24.sp,
+                        color = if (showTyping) AppColors.AccentBlue else AppColors.TextSecondary,
+                    )
+                }
 
-
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(
                     onClick = {
                         topLanguage = topLanguage.other()
                         onTopLanguageChanged(topLanguage)
                     },
+                    contentPadding = PaddingValues(horizontal = 12.dp),
+                    modifier = Modifier.height(36.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = AppColors.AccentBlue),
                 ) {
-                    Text("⇅ Поменять стороны", color = AppColors.TextPrimary)
+                    Text("⇅ Поменять стороны", color = AppColors.TextPrimary, fontSize = 13.sp)
                 }
 
                 Button(
                     onClick = { topZoneFlipped = !topZoneFlipped },
+                    contentPadding = PaddingValues(horizontal = 12.dp),
+                    modifier = Modifier.height(36.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = AppColors.AccentBlue),
                 ) {
-                    Text("🔄 Верхний чат", color = AppColors.TextPrimary)
+                    Text("🔄 Верхний чат", color = AppColors.TextPrimary, fontSize = 13.sp)
                 }
-                IconButton(onClick = { viewModel.clearConversation() }) {
+
+                IconButton(
+                    onClick = { viewModel.clearConversation() },
+                    modifier = Modifier.size(36.dp),
+                ) {
                     Icon(
                         imageVector = Icons.Default.Delete,
-                        contentDescription = "🗑",
-                        tint = AppColors.ErrorRed
+                        contentDescription = "Очистить чат",
+                        tint = AppColors.ErrorRed,
                     )
                 }
             }
 
-            TypedInputRow(
-                language = bottomLanguage,
-                onSend = { lang, text -> viewModel.translateTyped(lang, text) },
-            )
+            AnimatedVisibility(visible = showTyping) {
+                TypedInputRow(
+                    language = bottomLanguage,
+                    onSend = { lang, text -> viewModel.translateTyped(lang, text) },
+                )
+            }
 
             viewModel.errorMessage?.let {
                 Text(
@@ -196,7 +224,6 @@ fun Greeting(
                     modifier = Modifier.padding(top = 4.dp),
                 )
             }
-
         }
 
         ConversationZone(
