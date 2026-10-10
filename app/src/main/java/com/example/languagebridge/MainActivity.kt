@@ -157,6 +157,7 @@ fun Greeting(
             AnimatedVisibility(visible = showTyping) {
                 TypedInputRow(
                     language = topLanguage,
+                    placeholderFlipped = !topZoneFlipped,
                     onSend = { lang, text -> viewModel.translateTyped(lang, text) },
                 )
             }
@@ -175,7 +176,6 @@ fun Greeting(
                         color = if (showTyping) AppColors.AccentBlue else AppColors.TextSecondary,
                     )
                 }
-
                 Button(
                     onClick = {
                         topLanguage = topLanguage.other()
@@ -187,7 +187,6 @@ fun Greeting(
                 ) {
                     Text("⇅ Поменять стороны", color = AppColors.TextPrimary, fontSize = 13.sp)
                 }
-
                 Button(
                     onClick = { topZoneFlipped = !topZoneFlipped },
                     contentPadding = PaddingValues(horizontal = 12.dp),
@@ -208,14 +207,12 @@ fun Greeting(
                     )
                 }
             }
-
             AnimatedVisibility(visible = showTyping) {
                 TypedInputRow(
                     language = bottomLanguage,
                     onSend = { lang, text -> viewModel.translateTyped(lang, text) },
                 )
             }
-
             viewModel.errorMessage?.let {
                 Text(
                     text = "Ошибка: $it",
