@@ -37,7 +37,16 @@ import com.example.languagebridge.ui.theme.AppColors
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.os.Build
+import android.widget.Toast
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.ui.platform.LocalContext
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ConversationZone(
     language: Language,
@@ -54,6 +63,7 @@ fun ConversationZone(
     modifier: Modifier = Modifier,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
+    val context = LocalContext.current
     val isPressed by interactionSource.collectIsPressedAsState()
 
     var isRecordingSession by remember { mutableStateOf(value = false) }
@@ -97,6 +107,25 @@ fun ConversationZone(
                             .weight(1f, fill = false)
                             .clip(RoundedCornerShape(12.dp))
                             .background(AppColors.BubbleBackground)
+                            .combinedClickable(
+                                onClick = {},
+                                onLongClick = {
+                                    val textToCopy =
+                                        if (language == Language.ARMENIAN) turn.armenianText else turn.russianText
+                                    val clipboard =
+                                        context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                    clipboard.setPrimaryClip(
+                                        ClipData.newPlainText(
+                                            "HayRus",
+                                            textToCopy
+                                        )
+                                    )
+                                    if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.S_V2) {
+                                        Toast.makeText(context, "Скопировано", Toast.LENGTH_SHORT)
+                                            .show()
+                                    }
+                                },
+                            )
                             .padding(horizontal = 12.dp, vertical = 8.dp),
                     )
                     Row(verticalAlignment = Alignment.CenterVertically) {
