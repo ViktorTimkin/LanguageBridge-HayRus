@@ -121,7 +121,7 @@ class TranslatorViewModel(
     }
 
     fun speakTurn(turn: ConversationTurn, language: Language, slow: Boolean) {
-        val text = turn.textFor(language)
+        val text = if (language == Language.ARMENIAN) turn.armenianText else turn.russianText
         viewModelScope.launch {
             try {
                 if (slow) {
