@@ -7,13 +7,29 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -26,6 +42,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.languagebridge.data.AppPreferences
@@ -34,22 +51,10 @@ import com.example.languagebridge.data.Language
 import com.example.languagebridge.ui.ConversationZone
 import com.example.languagebridge.ui.TranslatorViewModel
 import com.example.languagebridge.ui.TranslatorViewModelFactory
-import com.example.languagebridge.ui.theme.LanguageBridgeTheme
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.material3.ButtonDefaults
 import com.example.languagebridge.ui.TypedInputRow
 import com.example.languagebridge.ui.theme.AppColors
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.size
-import androidx.compose.ui.unit.sp
+import com.example.languagebridge.ui.theme.LanguageBridgeTheme
+
 class MainActivity : ComponentActivity() {
 
     private var micPermissionGranted by mutableStateOf(value = false)
@@ -74,6 +79,7 @@ class MainActivity : ComponentActivity() {
         }
 
         val initialTopLanguage = AppPreferences.loadTopLanguage(this)
+        val initialTextScaleIndex = AppPreferences.loadTextScaleIndex(this)
 
         val service = AzureTranslationService(
             speechKey = BuildConfig.AZURE_SPEECH_KEY,
@@ -94,6 +100,10 @@ class MainActivity : ComponentActivity() {
                         onTopLanguageChanged = { lang ->
                             AppPreferences.saveTopLanguage(this@MainActivity, lang)
                         },
+                        initialTextScaleIndex = initialTextScaleIndex,
+                        onTextScaleChanged = { index ->
+                            AppPreferences.saveTextScaleIndex(this@MainActivity, index)
+                        },
                         modifier = Modifier.padding(innerPadding),
                     )
                 }
@@ -108,6 +118,8 @@ fun Greeting(
     hasMicPermission: Boolean,
     initialTopLanguage: Language,
     onTopLanguageChanged: (Language) -> Unit,
+    initialTextScaleIndex: Int,
+    onTextScaleChanged: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var topLanguage by remember { mutableStateOf(initialTopLanguage) }
@@ -115,6 +127,10 @@ fun Greeting(
 
     var topZoneFlipped by remember { mutableStateOf(true) }
     var showTyping by remember { mutableStateOf(false) }
+    var menuExpanded by remember { mutableStateOf(false) }
+    var textScaleIndex by remember { mutableStateOf(initialTextScaleIndex) }
+    val textScale = AppPreferences.TEXT_SCALES[textScaleIndex]
+
     val topListState = rememberLazyListState()
     val bottomListState = rememberLazyListState()
 
@@ -144,6 +160,7 @@ fun Greeting(
             onSpeakSlow = { turn -> viewModel.speakTurn(turn, topLanguage, slow = true) },
             flipped = true,
             contentFlippedExtra = topZoneFlipped,
+            textScale = textScale,
             modifier = Modifier.weight(1f),
         )
 
@@ -196,17 +213,54 @@ fun Greeting(
                     Text("🔄 Верхний чат", color = AppColors.TextPrimary, fontSize = 13.sp)
                 }
 
-                IconButton(
-                    onClick = { viewModel.clearConversation() },
-                    modifier = Modifier.size(36.dp),
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = "Очистить чат",
-                        tint = AppColors.ErrorRed,
-                    )
+                Box {
+                    IconButton(
+                        onClick = { menuExpanded = true },
+                        modifier = Modifier.size(36.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = "Меню",
+                            tint = AppColors.TextPrimary,
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = menuExpanded,
+                        onDismissRequest = { menuExpanded = false },
+                        containerColor = AppColors.BubbleBackground,
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Очистить чат", color = AppColors.ErrorRed) },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = null,
+                                    tint = AppColors.ErrorRed,
+                                )
+                            },
+                            onClick = {
+                                viewModel.clearConversation()
+                                menuExpanded = false
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = "Размер текста: ${AppPreferences.TEXT_SCALE_LABELS[textScaleIndex]}",
+                                    color = AppColors.TextPrimary,
+                                )
+                            },
+                            leadingIcon = { Text("Aa", color = AppColors.AccentBlue) },
+                            onClick = {
+                                textScaleIndex =
+                                    (textScaleIndex + 1) % AppPreferences.TEXT_SCALES.size
+                                onTextScaleChanged(textScaleIndex)
+                            },
+                        )
+                    }
                 }
             }
+
             AnimatedVisibility(visible = showTyping) {
                 TypedInputRow(
                     language = bottomLanguage,
@@ -234,6 +288,7 @@ fun Greeting(
             onSpeakNormal = { turn -> viewModel.speakTurn(turn, bottomLanguage, slow = false) },
             onSpeakSlow = { turn -> viewModel.speakTurn(turn, bottomLanguage, slow = true) },
             flipped = false,
+            textScale = textScale,
             modifier = Modifier.weight(1f),
         )
     }

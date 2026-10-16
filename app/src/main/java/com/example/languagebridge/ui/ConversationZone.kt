@@ -45,6 +45,7 @@ import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.sp
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -60,6 +61,7 @@ fun ConversationZone(
     onSpeakSlow: (ConversationTurn) -> Unit,
     flipped: Boolean,
     contentFlippedExtra: Boolean = false,
+    textScale: Float = 1f,
     modifier: Modifier = Modifier,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
@@ -103,6 +105,7 @@ fun ConversationZone(
                     Text(
                         text = turn.textFor(language),
                         color = AppColors.TextPrimary,
+                        fontSize = (16 * textScale).sp,
                         modifier = Modifier
                             .weight(1f, fill = false)
                             .clip(RoundedCornerShape(12.dp))
