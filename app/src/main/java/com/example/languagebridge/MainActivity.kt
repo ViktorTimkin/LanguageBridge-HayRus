@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
@@ -30,7 +31,6 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -64,6 +64,9 @@ import android.provider.Settings
 import android.widget.Toast
 import androidx.compose.material3.LinearProgressIndicator
 import com.example.languagebridge.data.UpdateInstaller
+import androidx.lifecycle.ViewModelProvider
+import com.example.languagebridge.ui.TranslatorViewModelFactory
+
 class MainActivity : ComponentActivity() {
 
     private var micPermissionGranted by mutableStateOf(value = false)
@@ -96,28 +99,66 @@ class MainActivity : ComponentActivity() {
             speechRegion = BuildConfig.AZURE_SPEECH_REGION,
             translatorKey = BuildConfig.AZURE_TRANSLATOR_KEY,
         )
-        lifecycleScope.launch {
-            availableUpdate = UpdateChecker.check(BuildConfig.VERSION_NAME)
-        }
+        val viewModel = ViewModelProvider(
+            this,
+            TranslatorViewModelFactory(service)
+        )[TranslatorViewModel::class.java]
+
         setContent {
             LanguageBridgeTheme {
+
+                // Основной интерфейс переводчика
+                Greeting(
+                    viewModel = viewModel,
+                    hasMicPermission = micPermissionGranted,
+                    initialTopLanguage = initialTopLanguage,
+                    onTopLanguageChanged = { language ->
+                        AppPreferences.saveTopLanguage(
+                            this@MainActivity,
+                            language
+                        )
+                    },
+                    initialTextScaleIndex = initialTextScaleIndex,
+                    onTextScaleChanged = { index ->
+                        AppPreferences.saveTextScaleIndex(
+                            this@MainActivity,
+                            index
+                        )
+                    }
+                )
+
+                // Диалог обновления поверх интерфейса
                 availableUpdate?.let { update ->
                     AlertDialog(
-                        onDismissRequest = { if (updateProgress == null) availableUpdate = null },
-                        title = { Text("Доступна версия ${update.version}") },
+                        onDismissRequest = {
+                            if (updateProgress == null) {
+                                availableUpdate = null
+                            }
+                        },
+                        title = {
+                            Text("Доступна версия ${update.version}")
+                        },
                         text = {
                             Column {
-                                Text(update.notes.replace("* ", "• ").ifBlank { "Вышло обновление HayRus." })
+                                Text(
+                                    update.notes
+                                        .replace("* ", "• ")
+                                        .ifBlank {
+                                            "Вышло обновление HayRus."
+                                        }
+                                )
+
                                 updateProgress?.let { progress ->
                                     Text(
                                         text = "Загрузка ${(progress * 100).toInt()}%",
-                                        modifier = Modifier.padding(top = 12.dp),
+                                        modifier = Modifier.padding(top = 12.dp)
                                     )
+
                                     LinearProgressIndicator(
                                         progress = { progress },
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .padding(top = 6.dp),
+                                            .padding(top = 6.dp)
                                     )
                                 }
                             }
@@ -125,20 +166,34 @@ class MainActivity : ComponentActivity() {
                         confirmButton = {
                             TextButton(
                                 onClick = { startUpdate(update) },
-                                enabled = updateProgress == null,
-                            ) { Text("Обновить") }
+                                enabled = updateProgress == null
+                            ) {
+                                Text("Обновить")
+                            }
                         },
                         dismissButton = {
                             TextButton(
-                                onClick = { availableUpdate = null },
-                                enabled = updateProgress == null,
-                            ) { Text("Позже") }
-                        },
+                                onClick = {
+                                    availableUpdate = null
+                                },
+                                enabled = updateProgress == null
+                            ) {
+                                Text("Позже")
+                            }
+                        }
                     )
                 }
             }
         }
+
+        // Проверяем обновления после создания интерфейса
+        lifecycleScope.launch {
+            availableUpdate = UpdateChecker.check(
+                BuildConfig.VERSION_NAME
+            )
+        }
     }
+
     private fun startUpdate(update: UpdateInfo) {
         val apkUrl = update.apkUrl
         if (apkUrl == null) {
@@ -148,7 +203,10 @@ class MainActivity : ComponentActivity() {
 
         if (!packageManager.canRequestPackageInstalls()) {
             startActivity(
-                Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName"))
+                Intent(
+                    Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                    Uri.parse("package:$packageName")
+                )
             )
             Toast.makeText(
                 this,
@@ -163,7 +221,11 @@ class MainActivity : ComponentActivity() {
             val file = UpdateInstaller.download(this@MainActivity, apkUrl) { updateProgress = it }
             if (file == null) {
                 updateProgress = null
-                Toast.makeText(this@MainActivity, "Не удалось скачать обновление", Toast.LENGTH_LONG).show()
+                Toast.makeText(
+                    this@MainActivity,
+                    "Не удалось скачать обновление",
+                    Toast.LENGTH_LONG
+                ).show()
                 return@launch
             }
             UpdateInstaller.install(this@MainActivity, file)
@@ -206,6 +268,7 @@ fun Greeting(
     Column(
         modifier = modifier
             .fillMaxSize()
+            .safeDrawingPadding()
             .imePadding(),
     ) {
 
