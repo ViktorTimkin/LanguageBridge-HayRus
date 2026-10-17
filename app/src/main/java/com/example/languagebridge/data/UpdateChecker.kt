@@ -45,7 +45,8 @@ object UpdateChecker {
 
             UpdateInfo(
                 version = latest,
-                downloadUrl = apkUrl ?: json.getString("html_url"),
+                apkUrl = apkUrl,
+                pageUrl = json.getString("html_url"),
                 notes = json.optString("body", ""),
             )
         } catch (e: Exception) {
