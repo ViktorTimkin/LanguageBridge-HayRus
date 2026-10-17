@@ -44,13 +44,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.languagebridge.data.AppPreferences
 import com.example.languagebridge.data.AzureTranslationService
 import com.example.languagebridge.data.Language
 import com.example.languagebridge.ui.ConversationZone
 import com.example.languagebridge.ui.TranslatorViewModel
-import com.example.languagebridge.ui.TranslatorViewModelFactory
 import com.example.languagebridge.ui.TypedInputRow
 import com.example.languagebridge.ui.theme.AppColors
 import com.example.languagebridge.ui.theme.LanguageBridgeTheme
@@ -62,11 +60,15 @@ import androidx.lifecycle.lifecycleScope
 import com.example.languagebridge.data.UpdateChecker
 import com.example.languagebridge.data.UpdateInfo
 import kotlinx.coroutines.launch
-
+import android.provider.Settings
+import android.widget.Toast
+import androidx.compose.material3.LinearProgressIndicator
+import com.example.languagebridge.data.UpdateInstaller
 class MainActivity : ComponentActivity() {
 
     private var micPermissionGranted by mutableStateOf(value = false)
     private var availableUpdate by mutableStateOf<UpdateInfo?>(null)
+    private var updateProgress by mutableStateOf<Float?>(null)
     private val requestMicPermission = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
@@ -101,41 +103,72 @@ class MainActivity : ComponentActivity() {
             LanguageBridgeTheme {
                 availableUpdate?.let { update ->
                     AlertDialog(
-                        onDismissRequest = { availableUpdate = null },
+                        onDismissRequest = { if (updateProgress == null) availableUpdate = null },
                         title = { Text("Доступна версия ${update.version}") },
                         text = {
-                            Text(update.notes.replace("* ", "• ").ifBlank { "Вышло обновление HayRus." })
+                            Column {
+                                Text(update.notes.replace("* ", "• ").ifBlank { "Вышло обновление HayRus." })
+                                updateProgress?.let { progress ->
+                                    Text(
+                                        text = "Загрузка ${(progress * 100).toInt()}%",
+                                        modifier = Modifier.padding(top = 12.dp),
+                                    )
+                                    LinearProgressIndicator(
+                                        progress = { progress },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(top = 6.dp),
+                                    )
+                                }
+                            }
                         },
                         confirmButton = {
-                            TextButton(onClick = {
-                                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(update.downloadUrl)))
-                                availableUpdate = null
-                            }) { Text("Скачать") }
+                            TextButton(
+                                onClick = { startUpdate(update) },
+                                enabled = updateProgress == null,
+                            ) { Text("Обновить") }
                         },
                         dismissButton = {
-                            TextButton(onClick = { availableUpdate = null }) { Text("Позже") }
+                            TextButton(
+                                onClick = { availableUpdate = null },
+                                enabled = updateProgress == null,
+                            ) { Text("Позже") }
                         },
-                    )
-                }
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    val viewModel: TranslatorViewModel = viewModel(
-                        factory = TranslatorViewModelFactory(service)
-                    )
-                    Greeting(
-                        viewModel = viewModel,
-                        hasMicPermission = micPermissionGranted,
-                        initialTopLanguage = initialTopLanguage,
-                        onTopLanguageChanged = { lang ->
-                            AppPreferences.saveTopLanguage(this@MainActivity, lang)
-                        },
-                        initialTextScaleIndex = initialTextScaleIndex,
-                        onTextScaleChanged = { index ->
-                            AppPreferences.saveTextScaleIndex(this@MainActivity, index)
-                        },
-                        modifier = Modifier.padding(innerPadding),
                     )
                 }
             }
+        }
+    }
+    private fun startUpdate(update: UpdateInfo) {
+        val apkUrl = update.apkUrl
+        if (apkUrl == null) {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(update.pageUrl)))
+            return
+        }
+
+        if (!packageManager.canRequestPackageInstalls()) {
+            startActivity(
+                Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName"))
+            )
+            Toast.makeText(
+                this,
+                "Разрешите установку для HayRus и нажмите «Обновить» ещё раз",
+                Toast.LENGTH_LONG,
+            ).show()
+            return
+        }
+
+        lifecycleScope.launch {
+            updateProgress = 0f
+            val file = UpdateInstaller.download(this@MainActivity, apkUrl) { updateProgress = it }
+            if (file == null) {
+                updateProgress = null
+                Toast.makeText(this@MainActivity, "Не удалось скачать обновление", Toast.LENGTH_LONG).show()
+                return@launch
+            }
+            UpdateInstaller.install(this@MainActivity, file)
+            updateProgress = null
+            availableUpdate = null
         }
     }
 }

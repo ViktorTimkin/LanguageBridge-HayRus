@@ -8,7 +8,8 @@ import java.net.URL
 
 data class UpdateInfo(
     val version: String,
-    val downloadUrl: String,
+    val apkUrl: String?,
+    val pageUrl: String,
     val notes: String,
 )
 
