@@ -54,11 +54,19 @@ import com.example.languagebridge.ui.TranslatorViewModelFactory
 import com.example.languagebridge.ui.TypedInputRow
 import com.example.languagebridge.ui.theme.AppColors
 import com.example.languagebridge.ui.theme.LanguageBridgeTheme
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.lifecycle.lifecycleScope
+import com.example.languagebridge.data.UpdateChecker
+import com.example.languagebridge.data.UpdateInfo
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
     private var micPermissionGranted by mutableStateOf(value = false)
-
+    private var availableUpdate by mutableStateOf<UpdateInfo?>(null)
     private val requestMicPermission = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
@@ -86,9 +94,29 @@ class MainActivity : ComponentActivity() {
             speechRegion = BuildConfig.AZURE_SPEECH_REGION,
             translatorKey = BuildConfig.AZURE_TRANSLATOR_KEY,
         )
-
+        lifecycleScope.launch {
+            availableUpdate = UpdateChecker.check(BuildConfig.VERSION_NAME)
+        }
         setContent {
             LanguageBridgeTheme {
+                availableUpdate?.let { update ->
+                    AlertDialog(
+                        onDismissRequest = { availableUpdate = null },
+                        title = { Text("Доступна версия ${update.version}") },
+                        text = {
+                            Text(update.notes.replace("* ", "• ").ifBlank { "Вышло обновление HayRus." })
+                        },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(update.downloadUrl)))
+                                availableUpdate = null
+                            }) { Text("Скачать") }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { availableUpdate = null }) { Text("Позже") }
+                        },
+                    )
+                }
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     val viewModel: TranslatorViewModel = viewModel(
                         factory = TranslatorViewModelFactory(service)
