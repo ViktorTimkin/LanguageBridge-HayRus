@@ -1,4 +1,3 @@
-
 package com.example.languagebridge.data
 
 import java.util.Locale

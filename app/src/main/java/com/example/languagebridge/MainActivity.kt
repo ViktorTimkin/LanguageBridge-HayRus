@@ -45,7 +45,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.example.languagebridge.data.AppPreferences
-import com.example.languagebridge.data.AzureTranslationService
+import com.example.languagebridge.data.speech.SpeechRecognitionService
+import com.example.languagebridge.data.speech.SpeechSynthesisService
+import com.example.languagebridge.data.translation.TextTranslationService
 import com.example.languagebridge.data.Language
 import com.example.languagebridge.ui.ConversationZone
 import com.example.languagebridge.ui.TranslatorViewModel
@@ -94,14 +96,20 @@ class MainActivity : ComponentActivity() {
         val initialTopLanguage = AppPreferences.loadTopLanguage(this)
         val initialTextScaleIndex = AppPreferences.loadTextScaleIndex(this)
 
-        val service = AzureTranslationService(
+        val speechRecognition = SpeechRecognitionService(
             speechKey = BuildConfig.AZURE_SPEECH_KEY,
             speechRegion = BuildConfig.AZURE_SPEECH_REGION,
+        )
+        val speechSynthesis = SpeechSynthesisService(
+            speechKey = BuildConfig.AZURE_SPEECH_KEY,
+            speechRegion = BuildConfig.AZURE_SPEECH_REGION,
+        )
+        val textTranslation = TextTranslationService(
             translatorKey = BuildConfig.AZURE_TRANSLATOR_KEY,
         )
         val viewModel = ViewModelProvider(
             this,
-            TranslatorViewModelFactory(service)
+            TranslatorViewModelFactory(speechRecognition, speechSynthesis, textTranslation)
         )[TranslatorViewModel::class.java]
 
         setContent {
