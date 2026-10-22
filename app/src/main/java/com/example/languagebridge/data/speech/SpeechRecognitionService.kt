@@ -1,3 +1,4 @@
+
 package com.example.languagebridge.data.speech
 
 import com.example.languagebridge.data.TranslationOutcome
@@ -21,60 +22,109 @@ class SpeechRecognitionService(
     private val recognizedBuilder = StringBuilder()
     private val translatedBuilder = StringBuilder()
 
-    fun startListening(sourceLang: String, targetLangShort: String) {
-        this.targetLangShort = targetLangShort
+    suspend fun startListening(
+        sourceLang: String,
+        targetLangShort: String
+    ) = withContext(Dispatchers.IO) {
+        check(recognizer == null) {
+            "Распознавание уже запущено"
+        }
+
+        this@SpeechRecognitionService.targetLangShort = targetLangShort
         recognizedBuilder.clear()
         translatedBuilder.clear()
 
-        val config = SpeechTranslationConfig.fromSubscription(speechKey, speechRegion)
-        config.speechRecognitionLanguage = sourceLang
-        config.addTargetLanguage(targetLangShort)
-        config.setProperty(PropertyId.Speech_SegmentationSilenceTimeoutMs, "700")
-
-        val audioConfig = AudioConfig.fromDefaultMicrophoneInput()
-        val newRecognizer = TranslationRecognizer(config, audioConfig)
-
-        newRecognizer.recognized.addEventListener { _, event ->
-            if (event.result.reason == ResultReason.TranslatedSpeech) {
-                val text = event.result.text
-                val translated = event.result.translations[targetLangShort] ?: ""
-                if (text.isNotBlank()) {
-                    if (recognizedBuilder.isNotEmpty()) recognizedBuilder.append(" ")
-                    recognizedBuilder.append(text)
-                }
-                if (translated.isNotBlank()) {
-                    if (translatedBuilder.isNotEmpty()) translatedBuilder.append(" ")
-                    translatedBuilder.append(translated)
-                }
-            }
-        }
-
-        recognizer = newRecognizer
-        activeConfig = config
-        newRecognizer.startContinuousRecognitionAsync().get()
-    }
-
-    suspend fun stopListening(): TranslationOutcome? = withContext(Dispatchers.IO) {
-        val activeRecognizer = recognizer ?: return@withContext null
+        val config = SpeechTranslationConfig.fromSubscription(
+            speechKey,
+            speechRegion
+        )
 
         try {
-            activeRecognizer.stopContinuousRecognitionAsync().get()
-        } catch (e: Exception) {
-            return@withContext TranslationOutcome.Error(e.message ?: "Unknown error")
-        } finally {
-            activeRecognizer.close()
-            activeConfig?.close()
-            recognizer = null
-        }
-
-        if (recognizedBuilder.isEmpty()) {
-            TranslationOutcome.Error("Речь не распознана. Попробуйте ещё раз.")
-        } else {
-            TranslationOutcome.Success(
-                recognizedText = recognizedBuilder.toString(),
-                translatedText = translatedBuilder.toString(),
+            config.speechRecognitionLanguage = sourceLang
+            config.addTargetLanguage(targetLangShort)
+            config.setProperty(
+                PropertyId.Speech_SegmentationSilenceTimeoutMs,
+                "700"
             )
+
+            val audioConfig = AudioConfig.fromDefaultMicrophoneInput()
+
+            val newRecognizer = try {
+                TranslationRecognizer(config, audioConfig)
+            } finally {
+                audioConfig.close()
+            }
+
+            try {
+                newRecognizer.recognized.addEventListener { _, event ->
+                    if (event.result.reason == ResultReason.TranslatedSpeech) {
+                        val text = event.result.text
+                        val translated =
+                            event.result.translations[targetLangShort] ?: ""
+
+                        synchronized(recognizedBuilder) {
+                            if (text.isNotBlank()) {
+                                if (recognizedBuilder.isNotEmpty()) {
+                                    recognizedBuilder.append(" ")
+                                }
+                                recognizedBuilder.append(text)
+                            }
+
+                            if (translated.isNotBlank()) {
+                                if (translatedBuilder.isNotEmpty()) {
+                                    translatedBuilder.append(" ")
+                                }
+                                translatedBuilder.append(translated)
+                            }
+                        }
+                    }
+                }
+
+                recognizer = newRecognizer
+                activeConfig = config
+
+                newRecognizer.startContinuousRecognitionAsync().get()
+            } catch (e: Exception) {
+                recognizer = null
+                activeConfig = null
+                newRecognizer.close()
+                throw e
+            }
+        } catch (e: Exception) {
+            config.close()
+            throw e
         }
     }
 
+    suspend fun stopListening(): TranslationOutcome? =
+        withContext(Dispatchers.IO) {
+            val activeRecognizer = recognizer
+                ?: return@withContext null
+
+            try {
+                activeRecognizer.stopContinuousRecognitionAsync().get()
+
+                synchronized(recognizedBuilder) {
+                    if (recognizedBuilder.isEmpty()) {
+                        TranslationOutcome.Error(
+                            "Речь не распознана. Попробуйте ещё раз."
+                        )
+                    } else {
+                        TranslationOutcome.Success(
+                            recognizedText = recognizedBuilder.toString(),
+                            translatedText = translatedBuilder.toString(),
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                TranslationOutcome.Error(
+                    e.message ?: "Ошибка распознавания речи"
+                )
+            } finally {
+                activeRecognizer.close()
+                activeConfig?.close()
+                recognizer = null
+                activeConfig = null
+            }
+        }
 }
