@@ -10,7 +10,6 @@ import com.microsoft.cognitiveservices.speech.translation.TranslationRecognizer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/** Распознавание речи с одновременным переводом через Azure Speech. */
 class SpeechRecognitionService(
     private val speechKey: String,
     private val speechRegion: String,

@@ -70,7 +70,6 @@ class TranslatorViewModel(
 
         viewModelScope.launch {
             try {
-                // Сначала дожидаемся завершения запуска микрофона.
                 startJob?.join()
 
                 val outcome = speechRecognition.stopListening()
