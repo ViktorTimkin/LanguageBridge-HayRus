@@ -2,6 +2,7 @@
 package com.example.languagebridge.data.speech
 
 import com.example.languagebridge.data.TranslationOutcome
+import com.microsoft.cognitiveservices.speech.CancellationReason
 import com.microsoft.cognitiveservices.speech.PropertyId
 import com.microsoft.cognitiveservices.speech.ResultReason
 import com.microsoft.cognitiveservices.speech.audio.AudioConfig
@@ -16,10 +17,12 @@ class SpeechRecognitionService(
 ) {
     private var recognizer: TranslationRecognizer? = null
     private var activeConfig: SpeechTranslationConfig? = null
-    private var targetLangShort: String = ""
 
     private val recognizedBuilder = StringBuilder()
     private val translatedBuilder = StringBuilder()
+
+    private val resultLock = Any()
+    private var recognitionError: String? = null
 
     suspend fun startListening(
         sourceLang: String,
@@ -29,9 +32,11 @@ class SpeechRecognitionService(
             "Распознавание уже запущено"
         }
 
-        this@SpeechRecognitionService.targetLangShort = targetLangShort
-        recognizedBuilder.clear()
-        translatedBuilder.clear()
+        synchronized(resultLock) {
+            recognizedBuilder.clear()
+            translatedBuilder.clear()
+            recognitionError = null
+        }
 
         val config = SpeechTranslationConfig.fromSubscription(
             speechKey,
@@ -41,6 +46,7 @@ class SpeechRecognitionService(
         try {
             config.speechRecognitionLanguage = sourceLang
             config.addTargetLanguage(targetLangShort)
+
             config.setProperty(
                 PropertyId.Speech_SegmentationSilenceTimeoutMs,
                 "700"
@@ -61,7 +67,7 @@ class SpeechRecognitionService(
                         val translated =
                             event.result.translations[targetLangShort] ?: ""
 
-                        synchronized(recognizedBuilder) {
+                        synchronized(resultLock) {
                             if (text.isNotBlank()) {
                                 if (recognizedBuilder.isNotEmpty()) {
                                     recognizedBuilder.append(" ")
@@ -75,6 +81,15 @@ class SpeechRecognitionService(
                                 }
                                 translatedBuilder.append(translated)
                             }
+                        }
+                    }
+                }
+
+                newRecognizer.canceled.addEventListener { _, event ->
+                    if (event.reason == CancellationReason.Error) {
+                        synchronized(resultLock) {
+                            recognitionError = "Ошибка Azure Speech. " +
+                                    "Проверьте интернет и попробуйте ещё раз."
                         }
                     }
                 }
@@ -103,21 +118,32 @@ class SpeechRecognitionService(
             try {
                 activeRecognizer.stopContinuousRecognitionAsync().get()
 
-                synchronized(recognizedBuilder) {
-                    if (recognizedBuilder.isEmpty()) {
-                        TranslationOutcome.Error(
-                            "Речь не распознана. Попробуйте ещё раз."
-                        )
-                    } else {
-                        TranslationOutcome.Success(
-                            recognizedText = recognizedBuilder.toString(),
-                            translatedText = translatedBuilder.toString(),
-                        )
+                synchronized(resultLock) {
+                    val error = recognitionError
+
+                    when {
+                        error != null -> {
+                            TranslationOutcome.Error(error)
+                        }
+
+                        recognizedBuilder.isEmpty() -> {
+                            TranslationOutcome.Error(
+                                "Речь не распознана. Попробуйте ещё раз."
+                            )
+                        }
+
+                        else -> {
+                            TranslationOutcome.Success(
+                                recognizedText = recognizedBuilder.toString(),
+                                translatedText = translatedBuilder.toString(),
+                            )
+                        }
                     }
                 }
             } catch (e: Exception) {
                 TranslationOutcome.Error(
-                    e.message ?: "Ошибка распознавания речи"
+                    "Ошибка остановки распознавания: " +
+                            (e.message ?: "Неизвестная ошибка")
                 )
             } finally {
                 activeRecognizer.close()
